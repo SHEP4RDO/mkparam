@@ -14,7 +14,6 @@ type Threshold[T NumberConstraint] struct {
 	onCross func(T, T)
 }
 
-// Numeric представляет числовое значение с различными функциями и настройками.
 type Numeric[T NumberConstraint] struct {
 	value            T
 	format           string         // Format string for custom string representation.
@@ -23,7 +22,6 @@ type Numeric[T NumberConstraint] struct {
 	maxValue         *T             // Maximum allowable value (if any).
 	incrementStep    T
 
-	// Callbacks for various events.
 	onUpdate    func(T)         // Called when the value is updated.
 	onIncrease  func(T, T)      // Called when the value increases.
 	onDecrease  func(T, T)      // Called when the value decreases.
@@ -35,10 +33,12 @@ type Numeric[T NumberConstraint] struct {
 	thresholds []Threshold[T] // List of thresholds to notify on crossing.
 }
 
-// Set updates the value, applies constraints, triggers callbacks, and notifies about threshold crossings.
+func NewNumeric[T NumberConstraint](value T) *Numeric[T] {
+	return &Numeric[T]{value: value}
+}
+
 func (n *Numeric[T]) Set(value T, errs ...error) *Numeric[T] {
 	oldValue := n.value
-
 	// Trigger the onError callback if defined and an error condition is met.
 	if n.onError != nil && len(errs) > 0 {
 		for _, err := range errs {
@@ -48,27 +48,16 @@ func (n *Numeric[T]) Set(value T, errs ...error) *Numeric[T] {
 
 	// Apply minimum value constraint if defined.
 	if n.minValue != nil && lessThan(value, *n.minValue) {
-		value = *n.minValue
-
 		if n.onUnderflow != nil {
-			n.onUnderflow(value, *n.minValue)
+			n.onUnderflow(value, oldValue)
 		}
 	}
 
 	// Apply maximum value constraint if defined.
 	if n.maxValue != nil && greaterThan(value, *n.maxValue) {
-		value = *n.maxValue
-
 		if n.onOverflow != nil {
-			n.onOverflow(value, *n.maxValue)
+			n.onOverflow(value, oldValue)
 		}
-	}
-
-	// Apply maximum value constraint if defined.
-	if n.maxValue != nil && greaterThan(value, *n.maxValue) {
-		// Trigger the onOverflow callback if defined.
-
-		value = *n.maxValue
 	}
 
 	// Trigger the onUpdate callback if defined and if the value has changed.
@@ -95,12 +84,10 @@ func (n *Numeric[T]) Set(value T, errs ...error) *Numeric[T] {
 	return n
 }
 
-// / Get returns the current value of the Numeric.
 func (n *Numeric[T]) Get() T {
 	return n.value
 }
 
-// FromString parses the provided string into a numeric value and sets it.
 func (n *Numeric[T]) FromString(str string) error {
 	var value T
 	var err error
@@ -161,7 +148,6 @@ func (n *Numeric[T]) FromString(str string) error {
 	return err
 }
 
-// lessThan and greaterThan functions for comparing numeric values.
 func lessThan[T NumberConstraint](a, b T) bool {
 	return a < b
 }
@@ -174,45 +160,45 @@ func equal[T NumberConstraint](a, b T) bool {
 	return a == b
 }
 
-// SetMinValue sets a minimum allowable value for the Numeric.
 func (n *Numeric[T]) SetMinValue(min T) {
 	n.minValue = &min
 }
 
-// SetMaxValue sets a maximum allowable value for the Numeric.
+func (n *Numeric[T]) GetMinValue() T {
+	return *n.minValue
+}
+
 func (n *Numeric[T]) SetMaxValue(max T) {
 	n.maxValue = &max
+}
+
+func (n *Numeric[T]) GetMaxValue() T {
+	return *n.maxValue
 }
 
 func (n *Numeric[T]) SetIncrementStep(step T) {
 	n.incrementStep = step
 }
 
-// SetCompareCondition sets a custom comparison function for comparing the Numeric's value with another value.
 func (n *Numeric[T]) SetCompareCondition(f func(T, T) int) {
 	n.compareCondition = f
 }
 
-// AddThreshold adds a threshold to the Numeric's list of thresholds.
 func (n *Numeric[T]) AddThreshold(value T, onCross func(T, T)) *Numeric[T] {
-	// Directly add the threshold to the list without wrapping the onCross function
 	n.thresholds = append(n.thresholds, Threshold[T]{value: value, onCross: onCross})
 	return n
 }
 
-// Apply applies a function to the current value and sets the result as the new value.
 func (n *Numeric[T]) Apply(f func(T) T) T {
 	newValue := f(n.value)
 	n.Set(newValue)
 	return n.value
 }
 
-// Validate checks if the current value satisfies the provided validation function.
 func (n *Numeric[T]) Validate(validateFunc func(T) bool) bool {
 	return validateFunc(n.value)
 }
 
-// Reset clears all configurations of the Numeric, including constraints, callbacks, and thresholds.
 func (n *Numeric[T]) Reset() {
 	n.minValue = nil
 	n.maxValue = nil
@@ -222,28 +208,23 @@ func (n *Numeric[T]) Reset() {
 	n.thresholds = nil
 }
 
-// ResetLimits clears only the minimum and maximum value constraints.
 func (n *Numeric[T]) ResetLimits() {
 	n.minValue = nil
 	n.maxValue = nil
 }
 
-// ClearOnUpdate removes the callback function that is triggered when the value is updated.
 func (n *Numeric[T]) ClearOnUpdate() {
 	n.onUpdate = nil
 }
 
-// ClearOnIncrease removes the callback function that is triggered when the value increases.
 func (n *Numeric[T]) ClearOnIncrease() {
 	n.onIncrease = nil
 }
 
-// ClearOnDecrease removes the callback function that is triggered when the value decreases.
 func (n *Numeric[T]) ClearOnDecrease() {
 	n.onDecrease = nil
 }
 
-// Clone creates and returns a new Numeric instance that is a copy of the current Numeric.
 func (n *Numeric[T]) Clone() *Numeric[T] {
 	return &Numeric[T]{
 		value:      n.value,
@@ -257,27 +238,20 @@ func (n *Numeric[T]) Clone() *Numeric[T] {
 	}
 }
 
-// FormatAsScientific returns a string representation of the Numeric value in scientific notation format.
 func (n *Numeric[T]) FormatAsScientific() string {
 	return fmt.Sprintf("%e", n.value)
 }
 
-// FormatAsFixed returns a string representation of the Numeric value in fixed-point notation format.
 func (n *Numeric[T]) FormatAsFixed() string {
 	return fmt.Sprintf("%f", n.value)
 }
 
 // #region Formating
 
-// Serialize converts the current value of the Numeric to a byte slice in decimal format.
-// Returns the serialized byte slice representation of the Numeric value.
 func (n *Numeric[T]) Serialize() []byte {
 	return []byte(fmt.Sprintf("%v", n.value))
 }
 
-// Deserialize converts a byte slice representation of a numeric value to a Numeric value.
-// Takes a byte slice 'data' as input, which is expected to represent a numeric value in decimal format.
-// Returns an error if the byte slice cannot be converted to a numeric value.
 func (n *Numeric[T]) Deserialize(data []byte) error {
 	var value T
 	var err error
@@ -339,9 +313,6 @@ func (n *Numeric[T]) Deserialize(data []byte) error {
 	return err
 }
 
-// String returns a string representation of the Numeric.
-// If the 'format' string is empty, it returns a default format: "<value>".
-// Otherwise, it uses the provided format string to format the value.
 func (n Numeric[T]) String() string {
 	if n.format == "" {
 		return fmt.Sprintf("%v", n.value)
@@ -349,14 +320,10 @@ func (n Numeric[T]) String() string {
 	return fmt.Sprintf(n.format, n.value)
 }
 
-// Ptr returns a pointer to the current Numeric value.
-// This allows access to the Numeric value directly as a pointer.
 func (n *Numeric[T]) Ptr() *T {
 	return &n.value
 }
 
-// FormatAsHex returns a string representation of the Numeric value in hexadecimal format.
-// The format will be "0x<hex_value>", where <hex_value> is the hexadecimal representation of the Numeric value.
 func (n *Numeric[T]) FormatAsHex() string {
 	switch any(n.value).(type) {
 	case int, int32, int64, uint, uint32, uint64:
@@ -366,8 +333,6 @@ func (n *Numeric[T]) FormatAsHex() string {
 	}
 }
 
-// FormatAsBinary returns a string representation of the Numeric value in binary format.
-// The format will be "0b<binary_value>", where <binary_value> is the binary representation of the Numeric value.
 func (n *Numeric[T]) FormatAsBinary() string {
 	switch any(n.value).(type) {
 	case int, int32, int64, uint, uint32, uint64:
@@ -377,11 +342,6 @@ func (n *Numeric[T]) FormatAsBinary() string {
 	}
 }
 
-// NotifyThresholds checks if the value has crossed any of the defined thresholds.
-// It compares the old and new values with the thresholds.
-// If a threshold has been crossed, the associated callback function is invoked.
-// Takes 'oldValue' and 'newValue' as input parameters, representing the value before and after the change.
-// Calls the threshold's onCross callback function if a threshold is crossed.
 func (n *Numeric[T]) NotifyThresholds(oldValue, newValue T) {
 	for _, threshold := range n.thresholds {
 		if (lessThan(oldValue, threshold.value) && !lessThan(newValue, threshold.value)) ||
@@ -720,13 +680,6 @@ func (n *Numeric[T]) Sqrt() (T, error) {
 //#endregion
 
 // #region Logical operations
-// CompareTo compares the current Numeric value to another Numeric value.
-// Takes a pointer to another Numeric 'other' for comparison.
-// If a custom comparison function is set, it uses that function to compare values.
-// Otherwise, it compares values directly:
-// Returns 1 if the current value is greater than 'other.value',
-// -1 if the current value is less than 'other.value',
-// and 0 if they are equal.
 func (n *Numeric[T]) CompareTo(other *Numeric[T]) int {
 	if n.compareCondition != nil {
 		return n.compareCondition(n.value, other.value)
@@ -740,21 +693,14 @@ func (n *Numeric[T]) CompareTo(other *Numeric[T]) int {
 	return 0
 }
 
-// IsPositive checks if the current Numeric value is greater than zero.
-// Returns true if the current value is positive, otherwise returns false.
 func (n *Numeric[T]) IsPositive() bool {
 	return n.value > 0
 }
 
-// IsNegative checks if the current Numeric value is less than zero.
-// Returns true if the current value is negative, otherwise returns false.
 func (n *Numeric[T]) IsNegative() bool {
 	return n.value < 0
 }
 
-// IsEven checks if the current Numeric value is an even number.
-// Returns true if the current value is even (divisible by 2 without remainder),
-// otherwise returns false.
 func (n *Numeric[T]) IsEven() bool {
 	switch any(n.value).(type) {
 	case int, int32, int64, uint, uint32, uint64:
@@ -764,9 +710,6 @@ func (n *Numeric[T]) IsEven() bool {
 	}
 }
 
-// IsOdd checks if the current Numeric value is an odd number.
-// Returns true if the current value is odd (not divisible by 2 without remainder),
-// otherwise returns false.
 func (n *Numeric[T]) IsOdd() bool {
 	switch any(n.value).(type) {
 	case int, int32, int64, uint, uint32, uint64:
@@ -776,19 +719,10 @@ func (n *Numeric[T]) IsOdd() bool {
 	}
 }
 
-// IsInRange checks if the current Numeric value is within the specified range [min, max].
-// Takes two Numeric values 'min' and 'max' defining the inclusive range.
-// Returns true if the current value is greater than or equal to 'min' and less than or equal to 'max',
-// otherwise returns false.
 func (n *Numeric[T]) IsInRange(min, max T) bool {
 	return n.value >= min && n.value <= max
 }
 
-// IsMultipleOf checks if the current Numeric value is a multiple of the given Numeric value 'divisor'.
-// Takes a Numeric value 'divisor' to check divisibility.
-// Returns false if 'divisor' is zero, as division by zero is not allowed.
-// Returns true if the current value is divisible by 'divisor' (n.value % divisor == 0),
-// otherwise returns false.
 func (n *Numeric[T]) IsMultipleOf(divisor T) bool {
 	if divisor == 0 {
 		return false
@@ -804,16 +738,10 @@ func (n *Numeric[T]) IsMultipleOf(divisor T) bool {
 	}
 }
 
-// IsEqual checks if the current Numeric value is equal to the given Numeric value 'value'.
-// Takes a Numeric value 'value' for comparison.
-// Returns true if the current value is equal to 'value', otherwise returns false.
 func (n *Numeric[T]) IsEqual(value T) bool {
 	return n.value == value
 }
 
-// IsInSequence checks if the current Numeric value is present in the provided sequence of Numeric values.
-// Takes a slice of Numeric values 'seq' to check for inclusion.
-// Returns true if the current value is found in 'seq', otherwise returns false.
 func (n *Numeric[T]) IsInSequence(seq []T) bool {
 	for _, v := range seq {
 		if n.value == v {
@@ -823,9 +751,6 @@ func (n *Numeric[T]) IsInSequence(seq []T) bool {
 	return false
 }
 
-// IsPrime checks if the current Numeric value is a prime number.
-// A prime number is greater than 1 and divisible only by 1 and itself.
-// Returns true if the current value is a prime number, otherwise returns false.
 func (n *Numeric[T]) IsPrime() bool {
 	switch any(n.value).(type) {
 	case int:
@@ -847,23 +772,14 @@ func (n *Numeric[T]) IsPrime() bool {
 //#endregion
 //#region Callbacks
 
-// OnUpdate sets a callback function to be called when the Int value is updated.
-// Takes a function 'f' that receives the new value of the Int.
-// This function will be called whenever the Int value is updated.
 func (i *Numeric[T]) OnUpdate(f func(T)) {
 	i.onUpdate = f
 }
 
-// OnIncrease sets a callback function to be called when the Int value is increased.
-// Takes a function 'f' that receives the new value and the previous value of the Int.
-// This function will be called whenever the Int value is increased.
 func (i *Numeric[T]) OnIncrease(f func(T, T)) {
 	i.onIncrease = f
 }
 
-// OnDecrease sets a callback function to be called when the Int value is decreased.
-// Takes a function 'f' that receives the new value and the previous value of the Int.
-// This function will be called whenever the Int value is decreased.
 func (n *Numeric[T]) OnDecrease(f func(T, T)) *Numeric[T] {
 	n.onDecrease = f
 	return n
